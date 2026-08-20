@@ -1,0 +1,14 @@
+{
+  "name": "@automark/launcher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AutoMark 桌面启动器（Electron）：拉起 web/server/vision 三服务并打开应用窗口",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}

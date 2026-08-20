@@ -1,0 +1,34 @@
+# ---------- 依赖 ----------
+node_modules/
+launcher/node_modules/
+server/node_modules/
+web/node_modules/
+dist/
+*.tsbuildinfo
+
+# ---------- Python ----------
+vision/.venv/
+__pycache__/
+*.pyc
+vision/models/
+.pytest_cache/
+
+# ---------- 本地数据（含 API Key / 真实考试与扫描件）----------
+data/
+real_test_1/
+real_test_2/
+
+# ---------- 测试相关（验收脚本 / 单测 / 临时产物）----------
+scripts/acceptance_*.py
+scripts/test_*.ts
+scripts/*.txt
+scripts/_*.py
+scripts/_*.png
+scripts/_*.json
+
+# ---------- 系统/编辑器 ----------
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/

@@ -1,0 +1,269 @@
+{
+  "version": "0.1",
+  "exam": {
+    "id": "exam_2026_eng_u3",
+    "title": "English Unit 3 Quiz",
+    "subject": "English",
+    "grade": "Grade 7",
+    "duration_min": 40,
+    "created_at": "2026-08-19T10:00:00+08:00"
+  },
+  "paper": {
+    "mode": "answer_sheet",
+    "template": {
+      "title": "English Unit 3 Quiz",
+      "subtitle": "Time: 40 min    Full score: 24",
+      "instructions": "Read each question carefully. Write your answers on the ANSWER SHEET.",
+      "header": { "show_name": true, "show_student_id": true },
+      "footer": "Page {page} of {pages}"
+    },
+    "sections": [
+      {
+        "id": "sec_1",
+        "type": "single_choice",
+        "title": "Section A: Multiple Choice",
+        "instructions": "Choose ONE best answer and fill in the bubble on the answer sheet.",
+        "questions": [
+          {
+            "id": "q1",
+            "number": 1,
+            "score": 1,
+            "prompt": "She ___ to school every day.",
+            "options": ["go", "goes", "going", "gone"],
+            "answer": { "kind": "single", "correct": 1 }
+          },
+          {
+            "id": "q2",
+            "number": 2,
+            "score": 1,
+            "prompt": "There ___ some milk in the fridge yesterday.",
+            "options": ["is", "are", "was", "were"],
+            "answer": { "kind": "single", "correct": 2 }
+          },
+          {
+            "id": "q3",
+            "number": 3,
+            "score": 1,
+            "prompt": "— ___ do you visit your grandparents? — Once a week.",
+            "options": ["How long", "How often", "How soon", "How far"],
+            "answer": { "kind": "single", "correct": 1 }
+          },
+          {
+            "id": "q4",
+            "number": 4,
+            "score": 1,
+            "prompt": "My brother is good ___ playing the guitar.",
+            "options": ["at", "in", "on", "for"],
+            "answer": { "kind": "single", "correct": 0 }
+          },
+          {
+            "id": "q5",
+            "number": 5,
+            "score": 1,
+            "prompt": "If it ___ tomorrow, we will stay at home.",
+            "options": ["rain", "rains", "will rain", "rained"],
+            "answer": { "kind": "single", "correct": 1 }
+          },
+          {
+            "id": "q6",
+            "number": 6,
+            "score": 1,
+            "prompt": "This is ___ interesting book that I have read it twice.",
+            "options": ["so", "such", "so an", "such an"],
+            "answer": { "kind": "single", "correct": 3 }
+          },
+          {
+            "id": "q7",
+            "number": 7,
+            "score": 1,
+            "prompt": "The teacher asked us ___ late for class again.",
+            "options": ["not be", "not to be", "don't be", "to not be"],
+            "answer": { "kind": "single", "correct": 1 }
+          },
+          {
+            "id": "q8",
+            "number": 8,
+            "score": 1,
+            "prompt": "— Must I finish the work today? — No, you ___.",
+            "options": ["mustn't", "can't", "needn't", "shouldn't"],
+            "answer": { "kind": "single", "correct": 2 }
+          }
+        ]
+      },
+      {
+        "id": "sec_2",
+        "type": "multiple_choice",
+        "title": "Section B: Multiple Answers",
+        "instructions": "Choose ALL correct answers. You get partial score for an incomplete choice.",
+        "questions": [
+          {
+            "id": "q9",
+            "number": 9,
+            "score": 2,
+            "prompt": "Which of the following are healthy habits?",
+            "options": ["Sleep early", "Skip breakfast", "Exercise regularly", "Stay up late"],
+            "answer": {
+              "kind": "multiple",
+              "correct": [0, 2],
+              "scoring": { "full": 2, "partial": 1, "wrong": 0 }
+            }
+          },
+          {
+            "id": "q10",
+            "number": 10,
+            "score": 2,
+            "prompt": "Which sentences use the present perfect tense correctly?",
+            "options": [
+              "I have finished my homework.",
+              "She has went to Beijing.",
+              "They have lived here since 2010.",
+              "He have eaten lunch."
+            ],
+            "answer": {
+              "kind": "multiple",
+              "correct": [0, 2],
+              "scoring": { "full": 2, "partial": 1, "wrong": 0 }
+            }
+          },
+          {
+            "id": "q11",
+            "number": 11,
+            "score": 2,
+            "prompt": "Which words are uncountable nouns?",
+            "options": ["water", "apple", "information", "book"],
+            "answer": {
+              "kind": "multiple",
+              "correct": [0, 2],
+              "scoring": { "full": 2, "partial": 1, "wrong": 0 }
+            }
+          }
+        ]
+      },
+      {
+        "id": "sec_3",
+        "type": "true_false",
+        "title": "Section C: True or False",
+        "instructions": "Fill in T (true) or F (false) on the answer sheet.",
+        "questions": [
+          {
+            "id": "q12",
+            "number": 12,
+            "score": 1,
+            "prompt": "\"He don't like apples.\" is a correct English sentence.",
+            "options": ["T", "F"],
+            "answer": { "kind": "tf", "correct": 1 }
+          },
+          {
+            "id": "q13",
+            "number": 13,
+            "score": 1,
+            "prompt": "The past tense of \"go\" is \"went\".",
+            "options": ["T", "F"],
+            "answer": { "kind": "tf", "correct": 0 }
+          },
+          {
+            "id": "q14",
+            "number": 14,
+            "score": 1,
+            "prompt": "\"Much\" is usually used with countable nouns.",
+            "options": ["T", "F"],
+            "answer": { "kind": "tf", "correct": 1 }
+          },
+          {
+            "id": "q15",
+            "number": 15,
+            "score": 1,
+            "prompt": "An adjective can modify a noun.",
+            "options": ["T", "F"],
+            "answer": { "kind": "tf", "correct": 0 }
+          }
+        ]
+      },
+      {
+        "id": "sec_4",
+        "type": "fill_blank",
+        "title": "Section D: Fill in the Blanks",
+        "instructions": "Write ONE word in each box on the answer sheet.",
+        "questions": [
+          {
+            "id": "q16",
+            "number": 16,
+            "score": 2,
+            "prompt": "I ____ (go) to school ____ bus every day.",
+            "answer": {
+              "kind": "text",
+              "blanks": [
+                { "match": { "type": "any_of", "values": ["go", "am going"] }, "points": 0.5 },
+                { "match": { "type": "exact", "value": "by" }, "points": 1 }
+              ],
+              "scoring": "per_blank"
+            },
+            "layout": { "lines": 1 }
+          },
+          {
+            "id": "q17",
+            "number": 17,
+            "score": 1,
+            "prompt": "She has lived here ____ 2015.",
+            "answer": {
+              "kind": "text",
+              "match": { "type": "exact", "value": "since" }
+            },
+            "layout": { "lines": 1 }
+          },
+          {
+            "id": "q18",
+            "number": 18,
+            "score": 1,
+            "prompt": "The temperature today is ____ °C.",
+            "answer": {
+              "kind": "text",
+              "match": { "type": "numeric", "value": 23.5, "tolerance": 0.5 }
+            },
+            "layout": { "lines": 1 }
+          },
+          {
+            "id": "q19",
+            "number": 19,
+            "score": 1,
+            "prompt": "Write the comparative forms of \"good\" and \"bad\": ____, ____.",
+            "answer": {
+              "kind": "text",
+              "blanks": [
+                { "match": { "type": "exact", "value": "better" } },
+                { "match": { "type": "exact", "value": "worse" } }
+              ],
+              "scoring": "all_or_nothing"
+            },
+            "layout": { "lines": 1 }
+          },
+          {
+            "id": "q20",
+            "number": 20,
+            "score": 1,
+            "prompt": "Complete the idiom: \"It's raining cats and ____\".",
+            "answer": {
+              "kind": "text",
+              "match": { "type": "exact", "value": "dogs" }
+            },
+            "layout": { "lines": 1 }
+          }
+        ]
+      }
+    ]
+  },
+  "answer_sheet_config": {
+    "page_size": "A4",
+    "orientation": "portrait",
+    "mark_style": "ellipse",
+    "bubble_size_mm": 4.0,
+    "bubble_pitch_mm": 8.0,
+    "student_id": { "kind": "bubble", "digits": 12 },
+    "markers": { "corners": true, "qr": true, "barcode": false },
+    "footer_note": "Use a pencil. Rub out any answer you want to change with an eraser."
+  },
+  "metadata": {
+    "generator": "AutoMark v0.1",
+    "layout_engine": "amf-layout@0.1"
+  }
+}

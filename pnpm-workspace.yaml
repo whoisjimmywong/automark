@@ -1,0 +1,10 @@
+packages:
+  - server
+  - web
+  - launcher
+allowBuilds:
+  electron: true
+  esbuild: true
+onlyBuiltDependencies:
+  - esbuild
+  - electron
