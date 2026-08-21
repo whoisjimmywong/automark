@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   api,
   type GradingJobStatus,
+  type GradingJobSummary,
   type ResultsSummary,
   type ScanFileInfo,
   type StudentResult,
@@ -16,6 +17,13 @@ const VERDICT_LABEL: Record<string, string> = {
   pending: '待批改',
 };
 
+const JOB_STATUS_LABEL: Record<string, string> = {
+  running: '运行中',
+  done: '完成',
+  error: '失败',
+  interrupted: '已中断',
+};
+
 const TYPE_LABEL: Record<string, string> = {
   single_choice: '单选',
   multiple_choice: '多选',
@@ -28,6 +36,7 @@ export default function GradingPage({ examId }: { examId: string }) {
   const [results, setResults] = useState<ResultsSummary | null>(null);
   const [detail, setDetail] = useState<StudentResult | null>(null);
   const [job, setJob] = useState<GradingJobStatus | null>(null);
+  const [jobs, setJobs] = useState<GradingJobSummary[]>([]);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
   const [gradeMode, setGradeMode] = useState<'auto' | 'manual_fill'>('auto');
@@ -38,6 +47,7 @@ export default function GradingPage({ examId }: { examId: string }) {
   const refresh = useCallback(() => {
     api.listScans(examId).then((r) => setScans(r.scans)).catch(() => undefined);
     api.listResults(examId).then(setResults).catch(() => undefined);
+    api.listJobs(examId).then((r) => setJobs(r.jobs)).catch(() => undefined);
   }, [examId]);
 
   useEffect(() => {
@@ -106,6 +116,45 @@ export default function GradingPage({ examId }: { examId: string }) {
       .catch((e) => setToast((e as Error).message));
   }
 
+  /** 续跑：复用上次任务模式，跳过已处理学生 */
+  async function resumeJob(jobId: string, mode: 'auto' | 'manual_fill') {
+    setBusy(true);
+    setToast('');
+    try {
+      const { jobId: newJobId } = await api.startGrade(examId, mode, jobId);
+      setToast(`已发起续跑（跳过已批学生）`);
+      const poll = async () => {
+        const st = await api.gradeStatus(examId, newJobId);
+        setJob(st);
+        if (st.status === 'running') {
+          pollTimer.current = window.setTimeout(() => void poll(), 1500);
+          return;
+        }
+        setJob(null);
+        setBusy(false);
+        setToast(st.status === 'error' ? `续跑失败：${st.error ?? ''}` : '续跑完成');
+        refresh();
+      };
+      void poll();
+    } catch (e) {
+      setBusy(false);
+      setToast((e as Error).message);
+    }
+  }
+
+  async function interruptJob(jobId: string) {
+    setBusy(true);
+    try {
+      const r = await api.interruptJob(examId, jobId);
+      setToast(`任务已中断（${r.status}，可稍后续跑）`);
+      refresh();
+    } catch (e) {
+      setToast((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const progress = job && job.total_pages > 0
     ? Math.round((job.processed_pages / job.total_pages) * 100)
     : 0;
@@ -159,6 +208,51 @@ export default function GradingPage({ examId }: { examId: string }) {
             <span>{job.processed_pages} / {job.total_pages} 页</span>
           </div>
           <div className="progress"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
+        </div>
+      )}
+
+      {jobs.length > 0 && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h3>批改任务（最近 {jobs.length} 次）</h3>
+          <table className="results-table">
+            <thead>
+              <tr>
+                <th>时间</th><th>模式</th><th>状态</th><th>进度</th><th>学生</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.map((j) => (
+                <tr key={j.id}>
+                  <td className="muted">{new Date(j.created_at).toLocaleString()}</td>
+                  <td>{j.mode === 'manual_fill' ? '填空人工' : '自动'}</td>
+                  <td>
+                    {JOB_STATUS_LABEL[j.status] ?? j.status}
+                    {j.error && <span className="muted">（{j.error}）</span>}
+                    {j.resumed_from && <span className="badge">续跑</span>}
+                  </td>
+                  <td>{j.total_pages > 0 ? `${j.processed_pages}/${j.total_pages} 页` : '—'}</td>
+                  <td>{j.student_count}（已完成 {j.processed_students}）</td>
+                  <td>
+                    {(j.status === 'interrupted' || j.status === 'error') && (
+                      <button
+                        className="ghost"
+                        disabled={busy}
+                        onClick={() => void resumeJob(j.id, j.mode)}
+                      >
+                        续跑
+                      </button>
+                    )}
+                    {j.status === 'running' && (
+                      <button className="ghost" disabled={busy}
+                              onClick={() => void interruptJob(j.id)}>
+                        中断
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

@@ -6,14 +6,18 @@
  *  2. 打开应用窗口（加载本地 Web 前端）
  *  3. 托盘图标：最小化到托盘；退出时清理拉起的子进程
  *
- * 运行：pnpm --filter @automark/launcher start
+ * 两种运行模式：
+ *  - 开发（pnpm --filter @automark/launcher start）：vision=venv uvicorn、server=tsx、web=vite(5173)
+ *  - 打包（electron-builder 安装版，app.isPackaged）：vision=PyInstaller exe、server=便携 node
+ *    + dist、web 由 server 静态托管（8790），数据目录 = app.getPath('userData')
  */
 const { app, BrowserWindow, Tray, Menu } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const WEB_URL = 'http://127.0.0.1:5173';
+const isPackaged = app.isPackaged;
+const WEB_URL = isPackaged ? 'http://127.0.0.1:8790' : 'http://127.0.0.1:5173';
 const PORTS = { web: 5173, server: 8790, vision: 8791 };
 
 const children = [];
@@ -24,14 +28,23 @@ function log(...args) {
   console.log(`[launcher ${new Date().toLocaleTimeString()}]`, ...args);
 }
 
-function start(cmd, args, cwd, label) {
+function start(cmd, args, cwd, label, extraEnv = {}) {
   log(`启动 ${label}: ${cmd} ${args.join(' ')}（cwd=${cwd}）`);
-  const child = spawn(cmd, args, { cwd, shell: true, env: { ...process.env }, windowsHide: true });
+  const child = spawn(cmd, args, {
+    cwd,
+    shell: true,
+    env: { ...process.env, ...extraEnv },
+    windowsHide: true,
+  });
   child.stdout?.on('data', (d) => process.stdout.write(`[${label}] ${d}`));
   child.stderr?.on('data', (d) => process.stderr.write(`[${label}] ${d}`));
   child.on('exit', (code) => log(`${label} 退出 code=${code}`));
   children.push(child);
   return child;
+}
+
+function runtimePath(...parts) {
+  return path.join(process.resourcesPath, ...parts);
 }
 
 async function httpOk(url, timeoutMs = 1500) {
@@ -53,17 +66,36 @@ async function waitHttp(url, timeoutMs = 90_000) {
 }
 
 async function ensureServices() {
-  const visionPy = path.join(ROOT, 'vision', '.venv', 'Scripts', 'python.exe');
+  if (isPackaged) {
+    // ---- 打包模式：vision=PyInstaller exe；server=便携 node + dist；web 由 server 托管 ----
+    const dataDir = app.getPath('userData');
+    const visionExe = runtimePath('vision', 'automark-vision.exe');
+    const serverDir = runtimePath('server');
+    const nodeExe = path.join(serverDir, 'node.exe');
 
-  if (!(await waitHttp('http://127.0.0.1:8791/health', 2500))) {
-    start(visionPy, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8791'],
-          path.join(ROOT, 'vision'), 'vision');
-  }
-  if (!(await waitHttp('http://127.0.0.1:8790/api/health', 2500))) {
-    start('npx', ['tsx', 'src/index.ts'], path.join(ROOT, 'server'), 'server');
-  }
-  if (!(await waitHttp(WEB_URL, 2500))) {
-    start('npx', ['vite'], path.join(ROOT, 'web'), 'web');
+    if (!(await waitHttp('http://127.0.0.1:8791/health', 2500))) {
+      start(visionExe, [], serverDir, 'vision');
+    }
+    if (!(await waitHttp('http://127.0.0.1:8790/api/health', 2500))) {
+      start(nodeExe, ['dist/server/src/index.js'], serverDir, 'server', {
+        AUTOMARK_WEB_DIST: runtimePath('web'),
+        AUTOMARK_DATA_DIR: dataDir,
+      });
+    }
+  } else {
+    // ---- 开发模式 ----
+    const visionPy = path.join(ROOT, 'vision', '.venv', 'Scripts', 'python.exe');
+
+    if (!(await waitHttp('http://127.0.0.1:8791/health', 2500))) {
+      start(visionPy, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8791'],
+            path.join(ROOT, 'vision'), 'vision');
+    }
+    if (!(await waitHttp('http://127.0.0.1:8790/api/health', 2500))) {
+      start('npx', ['tsx', 'src/index.ts'], path.join(ROOT, 'server'), 'server');
+    }
+    if (!(await waitHttp(WEB_URL, 2500))) {
+      start('npx', ['vite'], path.join(ROOT, 'web'), 'web');
+    }
   }
 
   await Promise.all([

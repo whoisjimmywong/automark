@@ -5,7 +5,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const DATA_ROOT = path.resolve(process.cwd(), '..', 'data', 'exams');
+const DATA_ROOT = process.env.AUTOMARK_DATA_DIR
+  ? path.resolve(process.env.AUTOMARK_DATA_DIR, 'exams')
+  : path.resolve(process.cwd(), '..', 'data', 'exams');
 
 function scansDir(examId: string): string {
   return path.join(DATA_ROOT, examId, 'scans');

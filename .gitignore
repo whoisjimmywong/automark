@@ -4,6 +4,8 @@ launcher/node_modules/
 server/node_modules/
 web/node_modules/
 dist/
+build/
+launcher/release/
 *.tsbuildinfo
 
 # ---------- Python ----------
@@ -21,10 +23,14 @@ real_test_2/
 # ---------- 测试相关（验收脚本 / 单测 / 临时产物）----------
 scripts/acceptance_*.py
 scripts/test_*.ts
+scripts/regression_*.py
 scripts/*.txt
 scripts/_*.py
 scripts/_*.png
 scripts/_*.json
+
+# ---------- 构建生成物 ----------
+vision/*.spec
 
 # ---------- 系统/编辑器 ----------
 .DS_Store

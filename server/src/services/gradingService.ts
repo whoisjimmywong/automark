@@ -36,6 +36,81 @@ import { loadSettings } from './settingsService.js';
 const DPI = 300;
 
 const jobs = new Map<string, GradingJob>();
+const RUNNING = new Set<string>();  // 内存并发锁：exam_id -> 是否有 running job
+
+/** 批改任务目录（M4 持久化：data/exams/:id/jobs/*.json） */
+export function jobsDir(examId: string): string {
+  return path.join(resultsDir(examId), '..', 'jobs');
+}
+
+function jobFilePath(examId: string, jobId: string): string {
+  return path.join(jobsDir(examId), `${jobId}.json`);
+}
+
+function saveJob(job: GradingJob): void {
+  try {
+    fs.mkdirSync(jobsDir(job.exam_id), { recursive: true });
+    fs.writeFileSync(jobFilePath(job.exam_id, job.id), JSON.stringify(job, null, 2), 'utf-8');
+  } catch {
+    // 落盘失败不阻断批改（内存态仍可用）
+  }
+}
+
+/** 启动时恢复历史任务：running → interrupted（不自动续跑，UI 手动续跑） */
+export function restoreJobs(): void {
+  try {
+    const root = process.env.AUTOMARK_DATA_DIR
+      ? path.resolve(process.env.AUTOMARK_DATA_DIR, 'exams')
+      : path.resolve(process.cwd(), '..', 'data', 'exams');
+    if (!fs.existsSync(root)) return;
+    for (const examDir of fs.readdirSync(root)) {
+      const dir = path.join(root, examDir, 'jobs');
+      if (!fs.existsSync(dir)) continue;
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.endsWith('.json')) continue;
+        try {
+          const job = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as GradingJob;
+          if (job.status === 'running') {
+            job.status = 'interrupted';
+            job.finished_at = new Date().toISOString();
+            fs.writeFileSync(path.join(dir, f), JSON.stringify(job, null, 2), 'utf-8');
+          }
+          jobs.set(job.id, job);
+        } catch {
+          // 损坏的 job 文件跳过
+        }
+      }
+    }
+  } catch {
+    // 目录不可读时忽略（全新环境）
+  }
+}
+
+export function listJobs(examId: string, limit = 10): GradingJob[] {
+  const out: GradingJob[] = [];
+  try {
+    const dir = jobsDir(examId);
+    if (fs.existsSync(dir)) {
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.endsWith('.json')) continue;
+        try {
+          const job = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as GradingJob;
+          if (job.exam_id === examId) out.push(job);
+        } catch {
+          // 跳过损坏文件
+        }
+      }
+    }
+  } catch {
+    // 忽略
+  }
+  // 合并内存中尚未落盘的任务
+  for (const job of jobs.values()) {
+    if (job.exam_id === examId && !out.some((j) => j.id === job.id)) out.push(job);
+  }
+  out.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return out.slice(0, limit);
+}
 
 export function getJob(id: string): GradingJob | undefined {
   return jobs.get(id);
@@ -68,12 +143,18 @@ function ocrConfigFromSettings(): Record<string, unknown> {
 }
 
 /** 启动批改任务（后台执行）；返回 job 句柄（轮询用）。
- * opts.manualFill = true → 只自动批改选择题，填空题留待人工批改（verdict=pending）。 */
+ * opts.manualFill = true → 只自动批改选择题，填空题留待人工批改（verdict=pending）。
+ * opts.resumeFrom = 源 job id → 学生级断点续跑（跳过该 job 已处理的学生）。
+ * 同一考试同时只允许一个 running 任务（内存 + 落盘双重检查）。 */
 export function startGrading(
   examId: string,
   amf: AMF,
-  opts: { manualFill?: boolean } = {},
+  opts: { manualFill?: boolean; resumeFrom?: string } = {},
 ): GradingJob {
+  // 并发锁：内存检查 + 磁盘 running 检查
+  if (RUNNING.has(examId) || hasRunningJobOnDisk(examId)) {
+    throw new Error('该考试已有批改任务在运行（请等待完成或先中断）');
+  }
   const job: GradingJob = {
     id: newJobId(),
     exam_id: examId,
@@ -83,10 +164,32 @@ export function startGrading(
     students: [],
     created_at: new Date().toISOString(),
     manual_fill: opts.manualFill === true,
+    ...(opts.resumeFrom ? { resumed_from: opts.resumeFrom } : {}),
   };
   jobs.set(job.id, job);
+  RUNNING.add(examId);
+  saveJob(job);
   void runPipeline(job, amf);
   return job;
+}
+
+function hasRunningJobOnDisk(examId: string): boolean {
+  try {
+    const dir = jobsDir(examId);
+    if (!fs.existsSync(dir)) return false;
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith('.json')) continue;
+      try {
+        const job = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as GradingJob;
+        if (job.status === 'running') return true;
+      } catch {
+        // 跳过
+      }
+    }
+  } catch {
+    // 忽略
+  }
+  return false;
 }
 
 async function runPipeline(job: GradingJob, amf: AMF): Promise<void> {
@@ -118,8 +221,21 @@ async function runPipeline(job: GradingJob, amf: AMF): Promise<void> {
     };
     const ocrConfig = ocrConfigFromSettings();
 
+    // 断点续跑：跳过源 job 已处理完的学生（按 source_file）
+    const resumeSkip = new Set<string>();
+    if (job.resumed_from) {
+      const prev = jobs.get(job.resumed_from) ?? getJobFromDisk(examId, job.resumed_from);
+      for (const f of prev?.processed_students ?? []) resumeSkip.add(f);
+    }
+
     for (let fi = 0; fi < files.length; fi++) {
+      // 协作式中断：interrupt 后不再处理剩余学生
+      if (job.status !== 'running') break;
       const file = files[fi];
+      if (resumeSkip.has(file.name)) {
+        // 续跑：该生结果已在（源 job 生成），跳过识别与判分
+        continue;
+      }
       const absPath = scanPath(examId, file.name)!;
       const info = await scanInfo(absPath);
 
@@ -268,15 +384,40 @@ async function runPipeline(job: GradingJob, amf: AMF): Promise<void> {
       fs.writeFileSync(resultsFilePath(examId, sid), JSON.stringify(result, null, 2), 'utf-8');
       results.push(result);
       job.students = [...results];
+      job.processed_students = [...(job.processed_students ?? []), file.name];
+      saveJob(job);  // 每学生完成即落盘（断点续跑依据）
     }
 
     job.status = 'done';
     job.finished_at = new Date().toISOString();
+    saveJob(job);
   } catch (err) {
     job.status = 'error';
     job.error = err instanceof Error ? err.message : String(err);
     job.finished_at = new Date().toISOString();
+    saveJob(job);
+  } finally {
+    RUNNING.delete(job.exam_id);
   }
+}
+
+/** 中断运行中的任务（协作式：runPipeline 在学生循环检查状态后退出） */
+export function interruptJob(job: GradingJob): void {
+  if (job.status !== 'running') return;
+  job.status = 'interrupted';
+  job.finished_at = new Date().toISOString();
+  saveJob(job);
+  RUNNING.delete(job.exam_id);
+}
+
+function getJobFromDisk(examId: string, jobId: string): GradingJob | undefined {
+  try {
+    const p = jobFilePath(examId, jobId);
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf-8')) as GradingJob;
+  } catch {
+    // 忽略
+  }
+  return undefined;
 }
 
 // ------------------------------------------------------------ 复核 ----

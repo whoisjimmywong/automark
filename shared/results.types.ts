@@ -106,7 +106,7 @@ export interface StudentResult {
 export interface GradingJob {
   id: string;
   exam_id: string;
-  status: 'running' | 'done' | 'error';
+  status: 'running' | 'done' | 'error' | 'interrupted';
   error?: string;
   total_pages: number;
   processed_pages: number;
@@ -115,6 +115,10 @@ export interface GradingJob {
   finished_at?: string;
   /** true = manual_fill 模式（只自动批选择题，填空题待人工批改） */
   manual_fill?: boolean;
+  /** 已处理完的学生学号（断点续跑：跳过这些学生） */
+  processed_students?: string[];
+  /** 续跑的源 job id（resume_from） */
+  resumed_from?: string;
 }
 
 export interface ReviewItem {

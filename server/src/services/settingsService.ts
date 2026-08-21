@@ -12,7 +12,9 @@ import {
   type AppSettings,
 } from '../../../shared/settings.types.js';
 
-const DATA_ROOT = path.resolve(process.cwd(), '..', 'data');
+const DATA_ROOT = process.env.AUTOMARK_DATA_DIR
+  ? path.resolve(process.env.AUTOMARK_DATA_DIR)
+  : path.resolve(process.cwd(), '..', 'data');
 
 function settingsPath(): string {
   return path.join(DATA_ROOT, 'settings.json');

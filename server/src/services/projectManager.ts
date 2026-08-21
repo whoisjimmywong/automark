@@ -16,7 +16,9 @@ export interface ProjectSummary {
   generated: boolean;
 }
 
-const DATA_ROOT = path.resolve(process.cwd(), '..', 'data', 'exams');
+const DATA_ROOT = process.env.AUTOMARK_DATA_DIR
+  ? path.resolve(process.env.AUTOMARK_DATA_DIR, 'exams')
+  : path.resolve(process.cwd(), '..', 'data', 'exams');
 
 function projectDir(examId: string): string {
   return path.join(DATA_ROOT, examId);

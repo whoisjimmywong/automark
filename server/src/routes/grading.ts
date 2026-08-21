@@ -14,6 +14,8 @@ import {
 } from '../services/scanManager.js';
 import {
   getJob,
+  interruptJob,
+  listJobs,
   listStudentResults,
   loadStudentResult,
   startGrading,
@@ -80,15 +82,57 @@ export async function registerGradingRoutes(app: FastifyInstance): Promise<void>
   );
 
   // ------------------------------------------------------------- grade ----
-  app.post<{ Params: { id: string }; Body: { mode?: 'auto' | 'manual_fill' } }>(
+  app.post<{ Params: { id: string }; Body: { mode?: 'auto' | 'manual_fill'; resume_from?: string } }>(
     '/api/projects/:id/grade',
     async (req, reply) => {
       const chk = requireProject(req.params.id);
       if ('error' in chk) return reply.code(404).send({ error: chk.error });
       // manual_fill：只自动批改选择题，填空题留待人工批改
       const manualFill = req.body?.mode === 'manual_fill';
-      const job = startGrading(req.params.id, chk.amf, { manualFill });
-      return { ok: true, jobId: job.id, mode: manualFill ? 'manual_fill' : 'auto' };
+      try {
+        const job = startGrading(req.params.id, chk.amf, {
+          manualFill,
+          ...(req.body?.resume_from ? { resumeFrom: req.body.resume_from } : {}),
+        });
+        return { ok: true, jobId: job.id, mode: manualFill ? 'manual_fill' : 'auto' };
+      } catch (e) {
+        return reply.code(409).send({ error: (e as Error).message });
+      }
+    },
+  );
+
+  /** M4：历史批改任务（最近 N 个摘要，含状态/进度/可续跑） */
+  app.get<{ Params: { id: string } }>('/api/projects/:id/jobs', async (req) => ({
+    jobs: listJobs(req.params.id).map((j) => ({
+      id: j.id,
+      status: j.status,
+      error: j.error,
+      mode: j.manual_fill ? 'manual_fill' : 'auto',
+      total_pages: j.total_pages,
+      processed_pages: j.processed_pages,
+      student_count: j.students.length,
+      processed_students: j.processed_students?.length ?? 0,
+      resumed_from: j.resumed_from,
+      created_at: j.created_at,
+      finished_at: j.finished_at,
+    })),
+  }));
+
+  /** M4：中断运行中的任务（释放并发锁；中断后可用 resume_from 续跑） */
+  app.post<{ Params: { id: string; jobId: string } }>(
+    '/api/projects/:id/grade/:jobId/interrupt',
+    async (req, reply) => {
+      const chk = requireProject(req.params.id);
+      if ('error' in chk) return reply.code(404).send({ error: chk.error });
+      const job = getJob(req.params.jobId);
+      if (!job || job.exam_id !== req.params.id) {
+        return reply.code(404).send({ error: '任务不存在' });
+      }
+      if (job.status !== 'running') {
+        return reply.code(400).send({ error: '任务未在运行' });
+      }
+      interruptJob(job);
+      return { ok: true, status: job.status };
     },
   );
 

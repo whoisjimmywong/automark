@@ -89,15 +89,26 @@ export const api = {
       method: 'DELETE',
     }),
 
-  startGrade: (id: string, mode: 'auto' | 'manual_fill' = 'auto') =>
+  startGrade: (id: string, mode: 'auto' | 'manual_fill' = 'auto', resumeFrom?: string) =>
     req<{ ok: boolean; jobId: string }>(`/api/projects/${id}/grade`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify({ mode, ...(resumeFrom ? { resume_from: resumeFrom } : {}) }),
     }),
 
   gradeStatus: (id: string, jobId: string) =>
     req<GradingJobStatus>(`/api/projects/${id}/grade/${jobId}`),
+
+  /** M4：历史批改任务摘要（不含学生明细） */
+  listJobs: (id: string) => req<{ jobs: GradingJobSummary[] }>(`/api/projects/${id}/jobs`),
+
+  /** M4：中断运行中的任务 */
+  interruptJob: (id: string, jobId: string) =>
+    req<{ ok: boolean; status: string }>(`/api/projects/${id}/grade/${jobId}/interrupt`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    }),
 
   listResults: (id: string) => req<ResultsSummary>(`/api/projects/${id}/results`),
 
@@ -171,6 +182,21 @@ export interface GradingJobStatus {
   total_pages: number;
   processed_pages: number;
   student_count: number;
+  created_at: string;
+  finished_at?: string;
+}
+
+/** M4：历史批改任务摘要（不含学生明细） */
+export interface GradingJobSummary {
+  id: string;
+  status: 'running' | 'done' | 'error' | 'interrupted';
+  error?: string;
+  mode: 'auto' | 'manual_fill';
+  total_pages: number;
+  processed_pages: number;
+  student_count: number;
+  processed_students: number;
+  resumed_from?: string;
   created_at: string;
   finished_at?: string;
 }

@@ -308,6 +308,12 @@ def analyze_page(source: dict, dpi: int, exam_id: str, positions: dict,
     warnings: list[str] = []
     verts, warn = _detect_corners(gray, scale)
     warnings.extend(warn)
+    import os as _os
+    if _os.environ.get("AUTOMARK_DEBUG_ANALYZE"):
+        import sys as _sys
+        print(f"[DBG] analyze {source.get('path','')} page={source.get('page')} "
+              f"shape={gray.shape} verts={[[round(v[0],1),round(v[1],1)] if v else None for v in verts]} "
+              f"corner_warn={warn}", file=_sys.stderr, flush=True)
 
     warped, warp_warn = warp_page(gray, scale, verts)
     warnings.extend(warp_warn)
@@ -323,7 +329,13 @@ def analyze_page(source: dict, dpi: int, exam_id: str, positions: dict,
     # ---- QR：解码 + 归属校验 ----
     payload = decode_qr(warped, gray)
     qr_info: dict = {"ok": False, "payload": None, "decoded": None, "error": "未检测到二维码"}
-    page_no = 1
+    # 页码推定：QR 成功用负载页码；失败按扫描顺序（source.page 0 起）——不能恒为 1，
+    # 否则非首页 QR 失败会用首页 positions 采样本页图像，错误结果覆盖首页读数
+    page_no = int(source.get("page", 0)) + 1
+    import os as _os2
+    if _os2.environ.get("AUTOMARK_DEBUG_ANALYZE"):
+        import sys as _sys2
+        print(f"[DBG] page={source.get('page')} qr_payload={payload!r}", file=_sys2.stderr, flush=True)
     if payload:
         dec = qr_decode(payload)
         if dec is None:

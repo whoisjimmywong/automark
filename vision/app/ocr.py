@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import base64
+import threading
 from typing import Any
 
 import cv2
@@ -18,22 +19,26 @@ import numpy as np
 
 _engine = None
 _engine_error: str | None = None
+_engine_lock = threading.Lock()
 
 UPSCALE_MIN_H = 120   # 低于此高度的裁剪图先放大再送 OCR（经验值）
 BOX_PAD_MM = 0.0      # OCR 裁剪不外扩——框线被裁入会让检测器误读（实测 0.5mm 即导致 dogs→sãop）
 
 
 def _load_engine():
-    """懒加载 RapidOCR 单例（rapidocr v2，onnxruntime 后端）。"""
+    """懒加载 RapidOCR 单例（rapidocr v2，onnxruntime 后端）；线程安全（启动预热用）。"""
     global _engine, _engine_error
     if _engine is not None or _engine_error is not None:
         return _engine
-    try:
-        from rapidocr import RapidOCR
-        _engine = RapidOCR()
-    except Exception as exc:  # noqa: BLE001
-        _engine_error = f"{type(exc).__name__}: {exc}"
-        return None
+    with _engine_lock:
+        if _engine is not None or _engine_error is not None:
+            return _engine
+        try:
+            from rapidocr import RapidOCR
+            _engine = RapidOCR()
+        except Exception as exc:  # noqa: BLE001
+            _engine_error = f"{type(exc).__name__}: {exc}"
+            return None
     return _engine
 
 
@@ -377,6 +382,10 @@ def ocr_blank(warped: np.ndarray, scale: float, rect: list[float],
     conf = float(np.mean([s for _t, s in lines])) if lines else 0.0
     for alt in alternatives:
         alt["text"] = re.sub(r"\(\d+\)\s*", "", alt.get("text", "")).strip()
+    # 识别分歧惩罚：主候选与备选候选文本不一致（多路径各读各的）说明识别不稳定，
+    # 置信度打 8 折 → 更可能跌破 min_confidence 进人工复核（防高置信静默误判）
+    if text and any(a["text"] and a["text"] != text for a in alternatives):
+        conf *= 0.8
     out: dict = {
         "text": text,
         "confidence": round(conf, 4),
@@ -433,15 +442,36 @@ def _merge_api_candidate(lines: list[tuple[str, float]], alternatives: list[dict
 
 def ocr_blocks(warped: np.ndarray, scale: float, blocks: list[dict],
                engine_cfg: dict) -> list[dict]:
-    """对全部 ocr 块执行转写（含逐空 blank 下标）。"""
-    out = []
+    """对全部 ocr 块执行转写（含逐空 blank 下标）。
+
+    并行处理各作答框：onnxruntime 推理释放 GIL，多框并发可显著缩短整页 OCR
+    耗时（单学生全卷批改 ≤20s 目标的关键优化）。
+    """
+    targets = []
     for block in blocks:
         if block.get("kind") != "ocr":
             continue
         rect = block.get("rect")
         if not rect or len(rect) != 4:
             continue
-        res = ocr_blank(warped, scale, rect, engine_cfg)
+        targets.append((block, rect))
+
+    results: list[dict] = [None] * len(targets)  # type: ignore[list-item]
+    if len(targets) > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(4, len(targets))) as pool:
+            futs = {pool.submit(ocr_blank, warped, scale, rect, engine_cfg): i
+                    for i, (_b, rect) in enumerate(targets)}
+            for fut in futs:
+                results[futs[fut]] = fut.result()
+    else:
+        for i, (_b, rect) in enumerate(targets):
+            results[i] = ocr_blank(warped, scale, rect, engine_cfg)
+
+    out = []
+    for (block, _rect), res in zip(targets, results):
+        if res is None:
+            continue
         out.append({
             "qid": block.get("qid"),
             "blank": block.get("blank", 0),
