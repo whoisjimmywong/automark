@@ -46,6 +46,11 @@
 2. Agent 会读试卷（扫描件会自动 OCR/识别）→ 输出 `<试卷名>.amf.json` 与说明
 3. 在 AutoMark「组卷」页 → **导入 AMF** → 选择该文件 → 生成三件套
 
+> ❓ 不了解 AI Agent / 如何配置 SKILL？参考教程：
+> - [Agent Skills 官方介绍（Anthropic）](https://docs.claude.com/en/docs/agents-and-tools/agent-skills)——什么是 SKILL、如何给 AI 助手使用
+> - [DeepSeek Harness SKILL 中文文档](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill-filesystem/README.zh.md)——SKILL 目录配置（`~/.dsh/skills` 等）
+> - [DeepSeek Harness Skill 使用教程（中文）](https://www.ai-indeed.com/encyclopedia/29670.html)——手把手操作示例
+
 > 支持单选/多选/判断/填空、完形与阅读理解文章；现成试卷通常不含答案，
 > 转换时会生成「待补答案题号清单」，导入后在编辑器里逐题点选正确答案即可（Agent 不会猜测答案）。
 
