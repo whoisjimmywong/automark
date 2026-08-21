@@ -38,6 +38,17 @@
 - 安装版数据目录：`%APPDATA%\AutoMark`（删除即清除全部数据）
 - 使用 LLM 复核功能时，仅将"填空作答框截图"发送至你配置的 API 服务（默认关闭）
 
+## 从现有 PDF 试卷导入（AI 辅助，不用重新组卷）
+
+手头已有做好的试卷 PDF（印刷版或扫描件）？借助 AI Agent 一步转成 AutoMark 可导入的格式，无需在编辑器里重新录入：
+
+1. 把**试卷 PDF** 和本仓库的 **[`skills/pdf-to-amf/SKILL.md`](skills/pdf-to-amf/SKILL.md)** 一起交给 AI Agent（如 DeepSeek Harness 等支持技能的助手）
+2. Agent 会读试卷（扫描件会自动 OCR/识别）→ 输出 `<试卷名>.amf.json` 与说明
+3. 在 AutoMark「组卷」页 → **导入 AMF** → 选择该文件 → 生成三件套
+
+> 支持单选/多选/判断/填空、完形与阅读理解文章；现成试卷通常不含答案，
+> 转换时会生成「待补答案题号清单」，导入后在编辑器里逐题点选正确答案即可（Agent 不会猜测答案）。
+
 ## 常见问题
 
 | 问题 | 说明 |
@@ -45,7 +56,7 @@
 | 杀毒软件报警 | 未签名程序常见误报，选择「保留/允许」即可 |
 | 端口被占用 | 服务使用 8790/8791 本地端口，极少冲突；冲突时先关闭占用程序 |
 | 识别不准 | 确保扫描端正、光线均匀；低置信项会进入复核，人工确认即可 |
-| 如何导入已有试卷 | 组卷页 → 导入 AMF 文件（格式见 examples 目录） |
+| 如何导入已有试卷 | 见上方「从现有 PDF 试卷导入」；已生成的 AMF 文件在组卷页直接导入 |
 
 ## 开发者文档
 
@@ -54,3 +65,4 @@
 | [README_DEV.md](README_DEV.md) | 开发参考：验收套件、数据格式、不可变约定、踩坑记录、路线图 |
 | [M1_NOTES.md](M1_NOTES.md) / [M2_NOTES.md](M2_NOTES.md) / [M3_NOTES.md](M3_NOTES.md) / [M4_NOTES.md](M4_NOTES.md) | 里程碑交接文档 |
 | [product_dev.md](product_dev.md) | 产品开发文档 |
+| [skills/pdf-to-amf/SKILL.md](skills/pdf-to-amf/SKILL.md) | AI 辅助导入技能：PDF 试卷 → AMF 转换规范 |
